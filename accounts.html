@@ -33,6 +33,12 @@ $('#userForm').addEventListener('submit',async e=>{
    if(list.some(x=>x.email===payload.email))throw new Error('هذا البريد مسجل بالفعل في بيانات التجربة');
    const account={id:Math.max(0,...list.map(x=>Number(x.id)||0))+1,name:payload.name,email:payload.email,role:payload.role};
    list.push(account);saveList('riaya_demo_accounts',list);
+   if(account.role==='teacher'){
+    const localDb=(()=>{try{return JSON.parse(localStorage.getItem('riaya_db')||'{}')}catch(_){return {}}})();
+    if(!Array.isArray(localDb.staff))localDb.staff=[];
+    localDb.staff.push({id:Math.max(0,...localDb.staff.map(x=>Number(x.id)||0))+1,name:account.name,role:'مربية',phone:'',group:'الإدارة',status:'نشط'});
+    localStorage.setItem('riaya_db',JSON.stringify(localDb));
+   }
    show($('#userNotice'),'تم إنشاء حساب تجريبي محلي. رقم الحساب: '+account.id+' — لن يعمل تسجيل دخول مستقل لهذا الحساب حتى ربط خادم وقاعدة بيانات.',true);
    $('#userForm').reset();if(account.role==='parent')$('#parentId').value=account.id;return;
   }
@@ -52,7 +58,11 @@ $('#childForm').addEventListener('submit',async e=>{
    const children=readList('riaya_demo_children');
    const child={id:Math.max(0,...children.map(x=>Number(x.id)||0))+1,parent_id:Number(payload.parent_id),name:payload.name,birth_date:payload.birth_date,group_name:payload.group_name};
    children.push(child);saveList('riaya_demo_children',children);
-   show($('#childNotice'),'تم حفظ ملف الطفل في بيانات التجربة المحلية. رقم الملف: '+child.id,true);$('#childForm').reset();return;
+   const localDb=(()=>{try{return JSON.parse(localStorage.getItem('riaya_db')||'{}')}catch(_){return {}}})();
+   if(!Array.isArray(localDb.children))localDb.children=[];
+   localDb.children.push({id:Math.max(0,...localDb.children.map(x=>Number(x.id)||0))+1,name:payload.name,age:'',group:payload.group_name||'غير محددة',guardian:parent.name,phone:'',status:'نشط'});
+   localStorage.setItem('riaya_db',JSON.stringify(localDb));
+   show($('#childNotice'),'تم حفظ ملف الطفل محليًا، وسيظهر في قسم الأطفال بلوحة الإدارة. رقم الملف: '+child.id,true);$('#childForm').reset();return;
   }
   const d=await api('children',{method:'POST',headers:{'X-CSRF-Token':csrf},body:JSON.stringify(payload)});
   show($('#childNotice'),'تم إنشاء ملف الطفل وربطه بحساب الولي. رقم الملف: '+d.id,true);$('#childForm').reset();
