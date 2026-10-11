@@ -4,11 +4,59 @@
 .admin-page{max-width:1050px;margin:auto;padding:28px}.admin-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}.admin-top h1{margin:0;color:#172554;font-size:26px}.admin-top p{color:#7d899e;margin:7px 0 0}.admin-top a{color:#0f766e;text-decoration:none}.admin-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.admin-card{background:white;border:1px solid #e5eaf2;border-radius:15px;padding:22px}.admin-card h2{margin:0 0 8px;font-size:18px}.admin-card>p{font-size:13px;color:#7d899e;line-height:1.8;margin:0 0 18px}.admin-card label{display:block;font-size:13px;font-weight:650;margin:13px 0 6px}.admin-card input,.admin-card select{width:100%;padding:11px;border:1px solid #dce3ed;border-radius:9px;background:#fff}.admin-card button{border:0;background:#0f9f91;color:#fff;padding:12px 15px;border-radius:9px;margin-top:16px;font-weight:700}.notice{display:none;padding:12px;border-radius:9px;margin-top:14px;font-size:13px;line-height:1.8}.notice.ok{display:block;background:#e8f8f2;color:#12634f}.notice.err{display:block;background:#fff1f0;color:#9f3028}.account-id{font-weight:800;color:#172554}@media(max-width:760px){.admin-page{padding:16px}.admin-columns{grid-template-columns:1fr}}
 </style></head>
 <body><main class="admin-page"><header class="admin-top"><div><h1>إدارة الحسابات وملفات الأطفال</h1><p>إنشاء حسابات مستقلة للأولياء والمربّيات وربط كل طفل بحساب وليّه.</p></div><a href="index.html">← لوحة الإدارة</a></header><div id="globalNotice" class="notice"></div><div class="admin-columns"><section class="admin-card"><h2>إنشاء حساب</h2><p>ينشئ هذا النموذج حساب ولي أو مربّية على الخادم، وليس داخل المتصفح فقط.</p><form id="userForm"><label for="fullName">الاسم الكامل</label><input id="fullName" required maxlength="120"><label for="email">البريد الإلكتروني</label><input id="email" type="email" required maxlength="190"><label for="password">كلمة المرور المؤقتة</label><input id="password" type="password" minlength="12" required autocomplete="new-password"><label for="role">نوع الحساب</label><select id="role"><option value="parent">ولي أمر</option><option value="teacher">مربّية</option></select><button type="submit">إنشاء الحساب</button></form><div id="userNotice" class="notice"></div></section><section class="admin-card"><h2>تسجيل طفل وربطه بوليّه</h2><p>أدخل رقم حساب الولي الذي يظهر بعد إنشاء حسابه. بهذه الطريقة لا يُعرض ملف الطفل لحساب ولي آخر.</p><form id="childForm"><label for="parentId">رقم حساب الولي</label><input id="parentId" type="number" min="1" required><label for="childName">اسم الطفل</label><input id="childName" required maxlength="120"><label for="birthDate">تاريخ الميلاد</label><input id="birthDate" type="date"><label for="groupName">المجموعة</label><input id="groupName" maxlength="80" placeholder="مثال: الفراشات"><button type="submit">حفظ ملف الطفل</button></form><div id="childNotice" class="notice"></div></section></div></main><script>
-let csrf='';
+let csrf='',demoMode=false;
 const $=s=>document.querySelector(s);
 function show(el,msg,ok=false){el.textContent=msg;el.className='notice '+(ok?'ok':'err')}
-async function api(action,options={}){const r=await fetch('backend/api.php?action='+action,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const d=await r.json();if(!r.ok)throw new Error(d.error||'تعذرت العملية');return d}
-(async()=>{try{const me=await api('me');if(me.user.role!=='admin'){location.replace(me.user.role==='parent'?'parent.html':'login.html');return}csrf=me.csrf}catch(e){location.replace('login.html')}})();
-$('#userForm').addEventListener('submit',async e=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{const d=await api('users',{method:'POST',headers:{'X-CSRF-Token':csrf},body:JSON.stringify({name:$('#fullName').value,email:$('#email').value,password:$('#password').value,role:$('#role').value})});show($('#userNotice'),'تم إنشاء الحساب بنجاح. رقم الحساب: '+d.id+' — أرسل بيانات الدخول إلى صاحب الحساب عبر قناة آمنة.',true);$('#userForm').reset();if(d.role==='parent')$('#parentId').value=d.id}catch(err){show($('#userNotice'),err.message)}finally{btn.disabled=false}});
-$('#childForm').addEventListener('submit',async e=>{e.preventDefault();const btn=e.submitter;btn.disabled=true;try{const d=await api('children',{method:'POST',headers:{'X-CSRF-Token':csrf},body:JSON.stringify({parent_id:$('#parentId').value,name:$('#childName').value,birth_date:$('#birthDate').value,group_name:$('#groupName').value})});show($('#childNotice'),'تم إنشاء ملف الطفل وربطه بحساب الولي. رقم الملف: '+d.id,true);$('#childForm').reset()}catch(err){show($('#childNotice'),err.message)}finally{btn.disabled=false}});
+function readList(key){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
+function saveList(key,list){localStorage.setItem(key,JSON.stringify(list))}
+async function api(action,options={}){
+ const r=await fetch('backend/api.php?action='+action,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
+ const raw=await r.text();let d;try{d=JSON.parse(raw)}catch(_){throw new Error('API_UNAVAILABLE')}
+ if(!r.ok)throw new Error(d.error||'تعذرت العملية');return d
+}
+(async()=>{
+ try {
+  const me=await api('me');
+  if(me.user.role!=='admin'){location.replace(me.user.role==='parent'?'parent.html':'login.html');return}
+  csrf=me.csrf;
+ } catch(e) {
+  try {const demo=JSON.parse(sessionStorage.getItem('riaya_demo_user')||'null');if(demo&&demo.role==='admin'){demoMode=true;const notice=$('#globalNotice');show(notice,'وضع تجريبي: الحسابات وملفات الأطفال تُحفظ في هذا المتصفح فقط، وليست على خادم مشترك.',true);return}}catch(_){}
+  location.replace('login.html');
+ }
+})();
+$('#userForm').addEventListener('submit',async e=>{
+ e.preventDefault();const btn=e.submitter;btn.disabled=true;
+ try{
+  const payload={name:$('#fullName').value.trim(),email:$('#email').value.trim().toLowerCase(),password:$('#password').value,role:$('#role').value};
+  if(demoMode){
+   const list=readList('riaya_demo_accounts');
+   if(list.some(x=>x.email===payload.email))throw new Error('هذا البريد مسجل بالفعل في بيانات التجربة');
+   const account={id:Math.max(0,...list.map(x=>Number(x.id)||0))+1,name:payload.name,email:payload.email,role:payload.role};
+   list.push(account);saveList('riaya_demo_accounts',list);
+   show($('#userNotice'),'تم إنشاء حساب تجريبي محلي. رقم الحساب: '+account.id+' — لن يعمل تسجيل دخول مستقل لهذا الحساب حتى ربط خادم وقاعدة بيانات.',true);
+   $('#userForm').reset();if(account.role==='parent')$('#parentId').value=account.id;return;
+  }
+  const d=await api('users',{method:'POST',headers:{'X-CSRF-Token':csrf},body:JSON.stringify(payload)});
+  show($('#userNotice'),'تم إنشاء الحساب بنجاح. رقم الحساب: '+d.id+' — أرسل بيانات الدخول إلى صاحب الحساب عبر قناة آمنة.',true);$('#userForm').reset();if(d.role==='parent')$('#parentId').value=d.id;
+ }catch(err){show($('#userNotice'),err.message==='API_UNAVAILABLE'?'الخادم الخلفي غير مفعّل على Vercel؛ استخدم الوضع التجريبي أو اربط API وقاعدة بيانات.':err.message)}
+ finally{btn.disabled=false}
+});
+$('#childForm').addEventListener('submit',async e=>{
+ e.preventDefault();const btn=e.submitter;btn.disabled=true;
+ try{
+  const payload={parent_id:$('#parentId').value,name:$('#childName').value.trim(),birth_date:$('#birthDate').value,group_name:$('#groupName').value.trim()};
+  if(demoMode){
+   const accounts=readList('riaya_demo_accounts');
+   const parent=accounts.find(x=>Number(x.id)===Number(payload.parent_id)&&x.role==='parent');
+   if(!parent)throw new Error('لم يتم العثور على حساب ولي تجريبي بهذا الرقم. أنشئ حساب ولي أولًا.');
+   const children=readList('riaya_demo_children');
+   const child={id:Math.max(0,...children.map(x=>Number(x.id)||0))+1,parent_id:Number(payload.parent_id),name:payload.name,birth_date:payload.birth_date,group_name:payload.group_name};
+   children.push(child);saveList('riaya_demo_children',children);
+   show($('#childNotice'),'تم حفظ ملف الطفل في بيانات التجربة المحلية. رقم الملف: '+child.id,true);$('#childForm').reset();return;
+  }
+  const d=await api('children',{method:'POST',headers:{'X-CSRF-Token':csrf},body:JSON.stringify(payload)});
+  show($('#childNotice'),'تم إنشاء ملف الطفل وربطه بحساب الولي. رقم الملف: '+d.id,true);$('#childForm').reset();
+ }catch(err){show($('#childNotice'),err.message==='API_UNAVAILABLE'?'الخادم الخلفي غير مفعّل على Vercel.':err.message)}
+ finally{btn.disabled=false}
+});
 </script></body></html>
