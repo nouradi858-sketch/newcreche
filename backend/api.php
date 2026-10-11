@@ -30,7 +30,10 @@ function body(): array {
 function db(): PDO {
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
-    $path = getenv('CRECHE_DB_PATH') ?: dirname(__DIR__) . '/storage/riaya.sqlite';
+    $path = getenv('CRECHE_DB_PATH') ?: '';
+    if ($path === '' || $path[0] !== DIRECTORY_SEPARATOR) {
+        respond(500, ['error' => 'يجب ضبط CRECHE_DB_PATH كمسار مطلق خارج مجلد الملفات العامة']);
+    }
     $dir = dirname($path);
     if (!is_dir($dir)) mkdir($dir, 0700, true);
     $pdo = new PDO('sqlite:' . $path, null, null, [
