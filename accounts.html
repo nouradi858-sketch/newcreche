@@ -8,7 +8,13 @@ let csrf='',demoMode=false;
 const $=s=>document.querySelector(s);
 function show(el,msg,ok=false){el.textContent=msg;el.className='notice '+(ok?'ok':'err')}
 function readList(key){try{const x=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
-function saveList(key,list){localStorage.setItem(key,JSON.stringify(list))}\nfunction renderLocalLists(){const accounts=readList('riaya_demo_accounts'),children=readList('riaya_demo_children');const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));$('#accountsList').innerHTML=accounts.length?'<div class=\"tablewrap\"><table><thead><tr><th>رقم الحساب</th><th>الاسم</th><th>البريد</th><th>النوع</th></tr></thead><tbody>'+accounts.map(a=>'<tr><td>'+a.id+'</td><td>'+esc(a.name)+'</td><td>'+esc(a.email)+'</td><td>'+(a.role==='parent'?'ولي أمر':'مربّية')+'</td></tr>').join('')+'</tbody></table></div>':'<p class=\"empty-state\">لا توجد حسابات تجريبية بعد.</p>';$('#childrenList').innerHTML=children.length?'<div class=\"tablewrap\"><table><thead><tr><th>رقم الملف</th><th>اسم الطفل</th><th>رقم حساب الولي</th><th>المجموعة</th></tr></thead><tbody>'+children.map(x=>'<tr><td>'+x.id+'</td><td>'+esc(x.name)+'</td><td>'+x.parent_id+'</td><td>'+esc(x.group_name||'غير محددة')+'</td></tr>').join('')+'</tbody></table></div>':'<p class=\"empty-state\">لا توجد ملفات أطفال بعد.</p>';}
+function saveList(key,list){localStorage.setItem(key,JSON.stringify(list))}
+function renderLocalLists(){
+ const accounts=readList('riaya_demo_accounts'),children=readList('riaya_demo_children');
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ $('#accountsList').innerHTML=accounts.length?'<div class="tablewrap"><table><thead><tr><th>رقم الحساب</th><th>الاسم</th><th>البريد</th><th>النوع</th></tr></thead><tbody>'+accounts.map(a=>'<tr><td>'+a.id+'</td><td>'+esc(a.name)+'</td><td>'+esc(a.email)+'</td><td>'+(a.role==='parent'?'ولي أمر':'مربّية')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="empty-state">لا توجد حسابات تجريبية بعد.</p>';
+ $('#childrenList').innerHTML=children.length?'<div class="tablewrap"><table><thead><tr><th>رقم الملف</th><th>اسم الطفل</th><th>رقم حساب الولي</th><th>المجموعة</th></tr></thead><tbody>'+children.map(x=>'<tr><td>'+x.id+'</td><td>'+esc(x.name)+'</td><td>'+x.parent_id+'</td><td>'+esc(x.group_name||'غير محددة')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="empty-state">لا توجد ملفات أطفال بعد.</p>';
+}
 async function api(action,options={}){
  const r=await fetch('backend/api.php?action='+action,{credentials:'same-origin',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});
  const raw=await r.text();let d;try{d=JSON.parse(raw)}catch(_){throw new Error('API_UNAVAILABLE')}
