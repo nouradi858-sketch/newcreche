@@ -122,14 +122,26 @@ if ($action === 'setup' && $method === 'POST') {
 
 if ($action === 'login' && $method === 'POST') {
     $data = body();
-    $email = strtolower(trim((string)($data['email'] ?? '')));
+    $login = strtolower(trim((string)($data['username'] ?? $data['email'] ?? '')));
     $password = (string)($data['password'] ?? '');
+
+    // One-time convenience bootstrap requested for local evaluation.
+    // It only creates the default admin when the database has no admin account.
+    if ($login === 'admin' && $password === '1234') {
+        $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+        if ($adminCount === 0) {
+            $q = $pdo->prepare('INSERT OR IGNORE INTO users(name,email,password_hash,role) VALUES(?,?,?,?)');
+            $q->execute(['مدير النظام', 'admin@riaya.local', password_hash('1234', PASSWORD_DEFAULT), 'admin']);
+        }
+        $login = 'admin@riaya.local';
+    }
+
     $q = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ?');
-    $q->execute([$email]);
+    $q->execute([$login]);
     $record = $q->fetch();
     if (!$record || !password_verify($password, $record['password_hash'])) {
         usleep(250000);
-        respond(401, ['error' => 'البريد الإلكتروني أو كلمة المرور غير صحيحة']);
+        respond(401, ['error' => 'اسم المستخدم أو كلمة المرور غير صحيحة']);
     }
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int)$record['id'];
